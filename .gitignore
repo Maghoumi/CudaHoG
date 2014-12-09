@@ -79,3 +79,4 @@ Mex (Release)/
 
 # Compiled MEX binaries (all platforms)
 *.mex*
+/Mex
