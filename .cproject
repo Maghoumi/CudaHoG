@@ -62,6 +62,7 @@
 						</toolChain>
 					</folderInfo>
 					<sourceEntries>
+						<entry flags="VALUE_WORKSPACE_PATH" kind="sourcePath" name="include"/>
 						<entry flags="VALUE_WORKSPACE_PATH|RESOLVED" kind="sourcePath" name="src"/>
 					</sourceEntries>
 				</configuration>
@@ -71,7 +72,7 @@
 					<sass major="2" minor="1"/>
 					<ptx major="2" minor="0"/>
 				</executable>
-				<editor-arch major="2" minor="1"/>
+				<editor-arch major="2" minor="0"/>
 			</storageModule>
 			<storageModule moduleId="org.eclipse.cdt.core.externalSettings"/>
 		</cconfiguration>
@@ -106,7 +107,7 @@
 									<listOptionValue builtIn="false" value="&quot;${workspace_loc:/CudaHoG}&quot;"/>
 									<listOptionValue builtIn="false" value="&quot;${workspace_loc:/${ProjName}/include}&quot;"/>
 								</option>
-								<option id="nvcc.compiler.def.symbols.1915278029" name="Defined symbols (-D)" superClass="nvcc.compiler.def.symbols" valueType="definedSymbols"/>
+								<option id="nvcc.compiler.def.symbols.1915278029" name="Defined symbols (-D)" superClass="nvcc.compiler.def.symbols"/>
 								<inputType id="nvcc.compiler.input.cu.1019274845" superClass="nvcc.compiler.input.cu"/>
 								<inputType id="nvcc.compiler.input.cpp.1786596801" superClass="nvcc.compiler.input.cpp"/>
 								<inputType id="nvcc.compiler.input.c.1270231378" superClass="nvcc.compiler.input.c"/>
@@ -231,7 +232,7 @@
 					<sass major="2" minor="1"/>
 					<ptx major="2" minor="0"/>
 				</executable>
-				<editor-arch major="2" minor="1"/>
+				<editor-arch major="2" minor="0"/>
 			</storageModule>
 			<storageModule moduleId="org.eclipse.cdt.core.externalSettings"/>
 		</cconfiguration>
@@ -316,7 +317,7 @@
 					<sass major="2" minor="1"/>
 					<ptx major="2" minor="0"/>
 				</executable>
-				<editor-arch major="2" minor="1"/>
+				<editor-arch major="2" minor="0"/>
 			</storageModule>
 			<storageModule moduleId="org.eclipse.cdt.core.externalSettings"/>
 		</cconfiguration>
@@ -332,10 +333,10 @@
 		</configuration>
 		<configuration configurationName="Mex (Release)"/>
 		<configuration configurationName="Mex"/>
+		<configuration configurationName="DebugWtf"/>
 		<configuration configurationName="Debug (NoGPU)">
 			<resource resourceType="PROJECT" workspacePath="/CudaHoG"/>
 		</configuration>
-		<configuration configurationName="DebugWtf"/>
 		<configuration configurationName="Debug">
 			<resource resourceType="PROJECT" workspacePath="/CudaHoG"/>
 		</configuration>

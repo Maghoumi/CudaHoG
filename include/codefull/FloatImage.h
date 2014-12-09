@@ -15,6 +15,7 @@
 #include <stdexcept>
 #include <cstring>
 #include <vector>
+#include <memory>
 
 #include <npp.h>
 

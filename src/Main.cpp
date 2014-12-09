@@ -10,9 +10,9 @@
 #include <iostream>
 #include <iomanip>
 
-#include "utils/ImageUtils.cuh"
-#include "utils/FloatImage.h"
-#include "utils/PreciseTimer.h"
+#include "codefull/ImageUtils.cuh"
+#include "codefull/FloatImage.h"
+#include "codefull/PreciseTimer.h"
 
 using namespace codefull;
 using namespace std;

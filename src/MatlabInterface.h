@@ -11,9 +11,9 @@
 #ifndef MATLABINTERFACE_H_
 #define MATLABINTERFACE_H_
 
-#include "utils/ImageUtils.cuh"
-#include "utils/CudaMemory.h"
-#include "utils/FloatImage.h"
+#include "codefull/ImageUtils.cuh"
+#include "codefull/CudaMemory.h"
+#include "codefull/FloatImage.h"
 
 using namespace codefull;
 

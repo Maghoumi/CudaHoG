@@ -5,7 +5,7 @@
  *      Author: Mehran Maghoumi
  */
 
-#include "FloatImage.h"
+#include "codefull/FloatImage.h"
 
 namespace codefull {
 
