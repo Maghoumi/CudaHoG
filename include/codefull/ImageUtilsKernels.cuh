@@ -24,6 +24,11 @@
 #define HOG_NUM_BINS 9
 #define HOG_NUM_CELLS 4
 
+#include "cuda_runtime.h"
+#include "device_launch_parameters.h"
+#include "device_functions.h"
+#include "device_types.h"
+
 
 typedef struct {
 		unsigned char center1;
@@ -41,8 +46,8 @@ __global__ void calculateMagnitudeAndOrientation(const float* srcDiffX, const fl
 						   float* dstMagnitude, float* dstOrientation, const int dstPitch,
 						   const int width, const int height, const int numChannels) {
 
-	const uint idxX = blockIdx.x * HOG_MAGNITUDE_BLOCK_SIZE + threadIdx.x;
-	const uint idxY = blockIdx.y * HOG_MAGNITUDE_BLOCK_SIZE + threadIdx.y;
+	const unsigned int idxX = blockIdx.x * HOG_MAGNITUDE_BLOCK_SIZE + threadIdx.x;
+	const unsigned int idxY = blockIdx.y * HOG_MAGNITUDE_BLOCK_SIZE + threadIdx.y;
 
 	if (idxX >= width || idxY >= height)
 		return;
@@ -76,7 +81,7 @@ __global__ void calculateMagnitudeAndOrientation(const float* srcDiffX, const fl
  * Finds the bin location of a given angle for HoG feature extraction
  */
 inline __device__ BinLocation findPlace(float &angle) {
-	__const__ unsigned char binCenters[9] = {10, 30, 50, 70, 90, 110, 130, 150, 170};
+	const unsigned char binCenters[9] = {10, 30, 50, 70, 90, 110, 130, 150, 170};
 	BinLocation result;
 
 	result.index1 = floor(angle/20 - 0.5);
@@ -100,7 +105,7 @@ inline __device__ BinLocation findPlace(float &angle) {
  * Finds the offset of the shared memory for each block when
  * performing HoG feature extraction
  */
-inline __device__ uint findSharedOffset(const uint &x, const uint &y) {
+inline __device__ unsigned int findSharedOffset(const unsigned int &x, const unsigned int &y) {
 	if (x < HOG_CELL_SIZE && y < HOG_CELL_SIZE)
 		return 0;
 	if (x >= HOG_CELL_SIZE && y < HOG_CELL_SIZE)
@@ -123,15 +128,15 @@ __global__ void extractFeatures(const float* magnitude, const float* orientation
 
 	// Collaboratively initialize the value of the shared memory array
 	if (threadIdx.y < 4 && threadIdx.x < 9) {
-		const uint index = threadIdx.y * 9 + threadIdx.x;
+		const unsigned int index = threadIdx.y * 9 + threadIdx.x;
 		blockHistogram[index] = 0;
 	}
 
 	__syncthreads();
 
 	// Determine the input index of each thread
-	const uint idxX = blockIdx.x * HOG_CELL_SIZE + threadIdx.x;
-	const uint idxY = blockIdx.y * HOG_CELL_SIZE + threadIdx.y;
+	const unsigned int idxX = blockIdx.x * HOG_CELL_SIZE + threadIdx.x;
+	const unsigned int idxY = blockIdx.y * HOG_CELL_SIZE + threadIdx.y;
 
 	// Determine the address of the histogram for the cell that this thread is processing
 	float* hist = &blockHistogram[findSharedOffset(threadIdx.x, threadIdx.y)];
@@ -158,7 +163,7 @@ __global__ void extractFeatures(const float* magnitude, const float* orientation
 	// Do normalization and write out the results
 
 	if (threadIdx.y < 4 && threadIdx.x < 9) {
-		const uint index = threadIdx.y * 9 + threadIdx.x;
+		const unsigned int index = threadIdx.y * 9 + threadIdx.x;
 		__shared__ float norm[4*9];
 
 		norm[index] = blockHistogram[index] * blockHistogram[index];
@@ -190,15 +195,15 @@ __global__ void extractFeatures2(const float* magnitude, const float* orientatio
 
 	// Collaboratively initialize the value of the shared memory array
 	if (threadIdx.y < 4 && threadIdx.x < 9) {
-		const uint index = threadIdx.y * 9 + threadIdx.x;
+		const unsigned int index = threadIdx.y * 9 + threadIdx.x;
 		blockHistogram[index] = 0;
 	}
 
 	__syncthreads();
 
 	// Determine the input index of each thread
-	const uint idxX = blockIdx.x * HOG_BLOCK_SIZE + threadIdx.x;
-	const uint idxY = blockIdx.y * HOG_BLOCK_SIZE + threadIdx.y;
+	const unsigned int idxX = blockIdx.x * HOG_BLOCK_SIZE + threadIdx.x;
+	const unsigned int idxY = blockIdx.y * HOG_BLOCK_SIZE + threadIdx.y;
 
 	// Determine the address of the histogram for the cell that this thread is processing
 	float* hist = &blockHistogram[findSharedOffset(threadIdx.x, threadIdx.y)];
@@ -225,7 +230,7 @@ __global__ void extractFeatures2(const float* magnitude, const float* orientatio
 	// Do normalization and write out the results
 
 	if (threadIdx.y < 4 && threadIdx.x < 9) {
-		const uint index = threadIdx.y * 9 + threadIdx.x;
+		const unsigned int index = threadIdx.y * 9 + threadIdx.x;
 //		__shared__ float norm[4*9];
 //
 //		norm[index] = blockHistogram[index] * blockHistogram[index];

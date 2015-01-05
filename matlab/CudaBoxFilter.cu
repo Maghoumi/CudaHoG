@@ -1,9 +1,11 @@
 /*
- * Example of how to use the mxGPUArray API in a MEX file.  This example shows
- * how to write a MEX function that takes a gpuArray input and returns a
- * gpuArray output, e.g. B=mexFunction(A).
+ * CudaBoxFilter.cu
  *
- * Copyright 2012 The MathWorks, Inc.
+ *  Created on: Oct 24, 2014
+ *      Author: Mehran Maghoumi
+ *
+ *  Box filter gateway MEX file for MATLAB
+ *
  */
 
 
@@ -31,22 +33,22 @@ void mexFunction(int nlhs, mxArray *plhs[],
 
 	// Obtain input data and dimensions
 	float* image = (float*)mxGetData(prhs[0]);
-	int dim0 = dims[0];
-	int dim1 = dims[1];
-	int dim2 = ndim > 2 ? dims[2] : 1;
+	int height = dims[0];
+	int width = dims[1];
+	int numChannels = ndim > 2 ? dims[2] : 1;
 	int filterSize = (double)mxGetScalar(prhs[1]);
 
 //	mexPrintf("Passed %d, %d, %d\n", dim0, dim1, dim2);
 
 //	mexPrintf("Calling CUDA...\n");
 
-	std::shared_ptr<float> result = filter(image, dim0, dim1, dim2, filterSize);
+	std::shared_ptr<float> result = filter(image, width, height, numChannels, filterSize);
 //	mexPrintf("CUDA called successfully!\n");
 
 	plhs[0] = mxCreateNumericArray(ndim, dims, mxSINGLE_CLASS, mxREAL);
 	float * data = (float *) mxGetData(plhs[0]);
 //	mexPrintf("Copying data...\n");
-	memcpy((void*) data, (const void*) result.get(), dim0 * dim1 * dim2 * sizeof(float));
+	memcpy((void*) data, (const void*) result.get(), width * height * numChannels * sizeof(float));
 
 //	mexPrintf("Done!\n");
 }

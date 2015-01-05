@@ -45,4 +45,20 @@
         } while (false)
 
 
+/**
+ * Macros for disabling copy and assignment operations
+ */
+#define DISABLE_COPY(classname) \
+	private:\
+	classname(const classname&)
+
+#define DISABLE_ASSIGN(classname) \
+	private:\
+	classname& operator=(const classname&)
+
+#define DISABLE_COPY_AND_ASSIGN(classname) \
+private:\
+  classname(const classname&);\
+  classname& operator=(const classname&)
+
 #endif /* COMMONS_H_ */

@@ -9,23 +9,26 @@
 #include <fstream>
 #include <iostream>
 #include <iomanip>
-
-#include "codefull/ImageUtils.cuh"
+#include "codefull/ImageUtils.h"
 #include "codefull/FloatImage.h"
 #include "codefull/PreciseTimer.h"
 
 using namespace codefull;
 using namespace std;
 
+#include "matlabimage.h"
+
 int main(int argc, char *argv[]) {
-	FloatImage image("Lena.pgm");
+
+	FloatImage image("png.png");
 
 	PreciseTimer timer;
 
 	timer.start();
-	image.convolveInPlace(ImageUtils::getBoxKernel(5), NppiSize{5,5});
+	FloatImage convolved = image.convolve(ImageUtils::getBoxKernel(7));
+	convolved.display();
 	timer.stopAndLog("Box filter");
-	image.save("filtered.jpg");
+	convolved.save("png.png.png");
 
 	timer.start();
 	CudaMemory<float> result = ImageUtils::extractHOGFeatures(image);
@@ -37,7 +40,7 @@ int main(int argc, char *argv[]) {
 	for (int i = 0 ; i < result.getWidth() ; i++) {
 		out << result.getHostData()[i] << (i != result.getWidth() - 1 ? ", " : "");
 	}
-	out << "]";
+	out << "];";
 	out.close();
-	exit(Success);
+	exit(0);
 }

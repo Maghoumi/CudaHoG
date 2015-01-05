@@ -7,5 +7,5 @@ std::shared_ptr<float> extractHOGFeatures(float* inputImage, int dim0, int dim1,
 
 std::shared_ptr<float> filter (float* inputImage, int dim0, int dim1, int dim2, int filterSize) {
 	FloatImage image(inputImage, dim0, dim1, dim2, false, FloatImage::MATLAB);
-	return image.convolve(ImageUtils::getBoxKernel(filterSize), NppiSize{filterSize, filterSize}).cloneHostData();
+	return image.convolve(ImageUtils::getBoxKernel(filterSize)).toByteArray(FloatImage::Sources::MATLAB);
 }

@@ -28,7 +28,7 @@ vlHog = vl_hog(image,8, 'variant', 'dalaltriggs');
 a = toc;
 
 vlimhog = vl_hog('render', vlHog, 'variant', 'dalaltriggs');
-% figure, imshow(vlimhog);
+figure, imshow(vlimhog);
 
 b = a * 1000;
 fprintf('VLFEAT was %.2f milliseconds (%.4f seconds) \n', b,a );

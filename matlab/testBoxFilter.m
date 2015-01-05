@@ -1,7 +1,6 @@
 clear all
 filterSize = 7;
 image = im2single(imread('images/1.png'));
-% arra = gpuArray(image);
 
 [height width numChannels] = size(image);
 

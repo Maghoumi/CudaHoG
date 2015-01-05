@@ -16,7 +16,6 @@
 
 #include <cuda.h>
 
-
 #include "commons.h"
 
 namespace codefull {
@@ -25,7 +24,6 @@ template <class T>
 class CudaMemory {
 
 protected:
-	CudaMemory(){}	//FIXME for inheritance purposes
 	enum HeadStatus {UNINITIALIZED, CPU, GPU, SYNCED};
 
 	HeadStatus head = UNINITIALIZED;
@@ -35,20 +33,22 @@ protected:
 
 	bool ownHostData = true;
 	bool ownDeviceData = true;
-	bool transposed = false;
 
-	unsigned int width = 0;
-	unsigned int height = 0;
-	unsigned int numChannels = 0;
-	long unsigned int devPitch = 0;	//FIXME is this correct? pIE = pitch/(#elems * sizeof)
+	size_t width = 0;
+	size_t height = 0;
+	size_t numChannels = 0;
+	size_t devPitch = 0;	//FIXME is this correct? pIE = pitch/(#elems * sizeof)
+
+	/** Flag indicating whether the allocation should be pitched if possible */
+	bool shouldPitch = true;
 
 	/**
 	 * @return Returns true if this memory allocation should be pitched according to
 	 * 		   CUDA's requirements, false otherwise.
 	 */
-	virtual inline bool isPitched() {
+	virtual bool isPitched() {
 		int recordSize = numChannels * sizeof(T);
-		return recordSize == 4 || recordSize == 8 || recordSize == 16;
+		return shouldPitch && (recordSize == 4 || recordSize == 8 || recordSize == 16);
 	}
 
 	/**
@@ -58,19 +58,21 @@ protected:
 	void toHost() {
 		switch(this->head) {
 		case UNINITIALIZED:
-			this->hostData = new T[getSizeInBytes()];
+			this->hostData = new T[size()];
 			this->head = CPU;
 			std::memset((void*) this->hostData, 0, getSizeInBytes());
 			break;
 
 		case GPU:
 			if (hostData == nullptr)
-				this->hostData = new T[getSizeInBytes()];
-			if (isPitched())	// If pitched memory is used, cudaMemcpy2d must be called to copy back the array
+				this->hostData = new T[size()];
+			if (isPitched()) {	// If pitched memory is used, cudaMemcpy2d must be called to copy back the array
 				CHECK_CUDA_API(cudaMemcpy2D(this->hostData, getHostPitch(),
 						this->deviceData, getDevicePitch(), width * numChannels * sizeof(T), height,cudaMemcpyDeviceToHost));
-			else
+			}
+			else {
 				CHECK_CUDA_API(cudaMemcpy((void*)this->hostData, (void*)this->deviceData, getSizeInBytes(), cudaMemcpyDeviceToHost));
+			}
 			this->head = SYNCED;
 			break;
 
@@ -93,7 +95,7 @@ protected:
 			}
 			else {
 				CHECK_CUDA_API(cudaMalloc((void**) &this->deviceData, getSizeInBytes()));
-				this->devPitch = getHostPitch();	//fixme
+				this->devPitch = getHostPitch();
 				CHECK_CUDA_API(cudaMemset((void*) this->deviceData, 0, getSizeInBytes()));
 			}
 			this->head = GPU;
@@ -106,15 +108,17 @@ protected:
 				}
 				else {
 					CHECK_CUDA_API(cudaMalloc((void**) &this->deviceData, getSizeInBytes()));
-					this->devPitch = getHostPitch();	//fixme
+					this->devPitch = getHostPitch();
 				}
 			}
 
-			if (isPitched())
+			if (isPitched()){
 				CHECK_CUDA_API(cudaMemcpy2D(this->deviceData, getDevicePitch(),
 						this->hostData, getHostPitch(), width * numChannels * sizeof(T), height,cudaMemcpyHostToDevice));
-			else
-				CHECK_CUDA_API(cudaMemcpy((void*)deviceData, (void*)this->hostData, getSizeInBytes(), cudaMemcpyHostToDevice));
+			}
+			else {
+				CHECK_CUDA_API(cudaMemcpy((void*)deviceData, (const void*)this->hostData, getSizeInBytes(), cudaMemcpyHostToDevice));
+			}
 
 			this->head = SYNCED;
 			break;
@@ -125,44 +129,142 @@ protected:
 		}
 	}
 
+	/**
+	 * Copies all of the fields of another CudaMemory instance
+	 * to this instace.
+	 *
+	 * @param other		Other CudaMemory instance to copy fields from
+	 */
+	void copyAllFields(const CudaMemory& other) {
+		this->width = other.width;
+		this->height = other.height;
+		this->numChannels = other.numChannels;
+		this->devPitch = other.devPitch;
+		this->head = other.head;
+		this->hostData = other.hostData;
+		this->deviceData = other.deviceData;
+		this->ownHostData = other.ownHostData;
+		this->ownDeviceData = other.ownDeviceData;
+		this->shouldPitch = other.shouldPitch;
+	}
+
+	/**
+	 * Copies the information from another instance of this object to
+	 * the current instance. Used by the copy constructor and the assignment constructor.
+	 * @param other		Other instance to clone from
+	 */
+	void clone(const CudaMemory& other) {
+//		this->width = other.width;
+//		this->height = other.height;
+//		this->numChannels = other.numChannels;
+//		this->ownHostData = other.ownHostData;
+//		this->ownDeviceData = other.ownDeviceData;
+//		this->devPitch = other.devPitch;
+		copyAllFields(other);
+
+		switch (other.head)
+		{
+		case CPU:
+			copyHostDataFrom(other.hostData);
+			this->head = CPU;
+			break;
+
+		case GPU:
+			copyDeviceDataFrom(other.deviceData);
+			this->head = GPU;
+			break;
+
+		case SYNCED:
+			copyHostDataFrom(other.hostData);
+			toDevice();
+			this->head = SYNCED;
+			break;
+
+		case UNINITIALIZED:
+			this->head = UNINITIALIZED;
+			break;
+		}
+	}
+
 
 public:
-	CudaMemory(int width, int height, int numChannels, bool transposed = false){
-		this->numChannels = numChannels;
-		this->transposed = transposed;
-		if (!transposed) {
-			this->width = width;
-			this->height = height;
-		}
-		else {
-			this->width = height;
-			this->height = width;
-		}
+	CudaMemory(int width, int height, int numChannels, bool shouldPitch = true):numChannels(numChannels),
+		width(width), height(height), hostData(nullptr), deviceData(nullptr),
+		ownHostData(false), ownDeviceData(false), head(UNINITIALIZED), devPitch(0), shouldPitch(shouldPitch){
 	}
 
-	CudaMemory(T* hostData, int width, int height, int numChannels, bool ownsHostData, bool transposed = false)
-		   :CudaMemory(width, height, numChannels, transposed) {
-		setHostData(hostData, ownsHostData);
+	CudaMemory(T* hostData, int width, int height, int numChannels, bool ownsHostData, bool clone, bool shouldPitch = true)
+		   :CudaMemory(width, height, numChannels, shouldPitch) {
+		setHostData(hostData, ownsHostData, clone);
 	}
 
-	CudaMemory(T* deviceData, int width, int height, int numChannels, int devicePitch, bool ownsDeviceData, bool transposed = false)
-		   :CudaMemory(width, height, numChannels, transposed) {
+	CudaMemory(T* deviceData, int width, int height, int numChannels, int devicePitch, bool ownsDeviceData, bool shouldPitch = true)
+		   :CudaMemory(width, height, numChannels, shouldPitch) {
 		setDeviceData(deviceData, devicePitch, ownsDeviceData);
 	}
 
-	~CudaMemory() {
-		if (this->ownHostData && this->hostData != nullptr) {
-			delete[] this->hostData;
-		}
-
-		if (this->ownDeviceData && this->deviceData != nullptr)
-			CHECK_CUDA_API(cudaFree(this->deviceData));
-
-		this->hostData = nullptr;
-		this->deviceData = nullptr;
+	/**
+	 * Copy constructor
+	 */
+	CudaMemory(const CudaMemory& other) {
+		clone(other);
 	}
 
-	inline int getDevicePitch() const {
+	/**
+	 * Move constructor
+	 */
+	CudaMemory(CudaMemory && other){
+		copyAllFields(other);
+
+		other.deviceData = nullptr;
+		other.hostData = nullptr;
+	}
+
+	/**
+	* Assignment overload
+	*/
+	CudaMemory& operator=(const CudaMemory& other) {
+		if (this == &other)
+			return *this;
+
+		clone(other);
+		return *this;
+	}
+
+	/**
+	 * Move assignment overload
+	 */
+	CudaMemory& operator=(CudaMemory&& other) {
+		if (this == &other)
+			return *this;
+
+		copyAllFields(other);
+		other.deviceData = nullptr;
+		other.hostData = nullptr;
+
+		return *this;
+	}
+
+	/**
+	 * Frees the allocated memories if this instance owned those
+	 * data and the memory was allocated in the first place.
+	 */
+	virtual ~CudaMemory() {
+		if (this->ownHostData && this->hostData != nullptr) {
+			delete[] this->hostData;
+			this->hostData = nullptr;
+		}
+
+		if (this->ownDeviceData && this->deviceData != nullptr) {
+			CHECK_CUDA_API(cudaFree(this->deviceData));
+			this->deviceData = nullptr;
+		}
+	}
+
+	/**
+	 * @return	The pitch that was assigned to this object by the CUDA API
+	 */
+	size_t getDevicePitch() const {
 		if (this->devPitch == 0)
 			throw std::runtime_error("Device memory not initialized, yet the \"pitch\" value was requested!"
 					"\" (file \"" + std::string(__FILE__) +
@@ -172,63 +274,133 @@ public:
 	}
 
 	/**
-	 * @return the pitch of the device memory in NUMBER OF ELEMENTS!
-	 * Not byte! CUDA likes to return them in bytes (eg cudaMallocPitch)
+	 * @return	The pitch of the device memory in number of bytes/sizeof(T)
+	 * 			Note that CUDA returns the pitch in BYTES but for calling kernels
+	 * 			we are better off using pitch in elements. Otherwise, the pointer
+	 * 			has to be casted to a char* pointer in the device code
+	 * 			(Like shown in the CUDA C Programming guide:)
+	 * 			float* row = (float*)((char*)devPtr + r * pitch);
 	 */
-	bool isTransposed() const {return this->transposed;}
-	int getDevicePitchInElements() const { return this->getDevicePitch() / (this->numChannels * sizeof(T));}
-	int getHeight() const {return this->height;}
-	int getNumChannels() const {return this->numChannels;}
-	int getHostPitchInElements() const {return getHostPitch() / (this->numChannels * sizeof(T));}
-	int getHostPitch() const {return this->width * this->numChannels * sizeof(T);}
-	int getWidth() const {return this->width;};
-	int getSizeInBytes() const {return size() * sizeof(T);}
-	int size() const {return width * height * numChannels;}
+	size_t getDevicePitchInElements() const { return this->getDevicePitch() / sizeof(T);}
 
 	/**
-	 * @return Returns the unmodifiable host data
+	 * @return	The pitch of the host memory in number of elements (bytes/sizeof(T))
+	 */
+	size_t getHostPitchInElements() const {return getHostPitch() / sizeof(T);}
+
+	/**
+	 * @return	The pitch of the host memory of this instance
+	 */
+	size_t getHostPitch() const {return this->width * this->numChannels * sizeof(T);}
+
+	/**
+	 * @return	The height of the allocated array
+	 */
+	size_t getHeight() const {return this->height;}
+
+	/**
+	 * @return	The number of channels per each element of this instance
+	 */
+	size_t getNumChannels() const {return this->numChannels;}
+
+	/**
+	 * @return	The width of the allocated array
+	 */
+	size_t getWidth() const {return this->width;};
+
+	/**
+	 * @return	The size of the allocated memory in bytes
+	 */
+	size_t getSizeInBytes() const {return size() * sizeof(T);}
+
+	/**
+	 * @return	The size of the allocated memory in number of elements
+	 */
+	size_t size() const {return width * height * numChannels;}
+
+	/**
+	 * @return The unmodifiable host data (will synchronize the memory if necessary)
 	 */
 	const T* getHostData() {
 		toHost();
 		return (const T*) hostData;
 	}
 
-	void setHostData(T* hostData) {
-		setHostData(hostData, false);
+	/**
+	 * @return The unmodifiable device data (will synchronize the memory if necessary)
+	 */
+	const T* getDeviceData() {
+		toDevice();
+		return (const T*) deviceData;
 	}
 
-	void setHostData(T* hostData, bool ownHostData) {
+	/**
+	 * @return The modifiable host data (will synchronize the memory if necessary)
+	 */
+	T* getMutableHostData() {
+		toHost();
+		this->head = CPU;
+		return this->hostData;
+	}
+
+	/**
+	 * @return The modifiable device data (will synchronize the memory if necessary)
+	 */
+	T* getMutableDeviceData() {
+		toDevice();
+		this->head = GPU;
+		return this->deviceData;
+	}
+
+	/**
+	 * Sets the host array of this instance. The array will not be owned
+	 * @param hostData	The host array to set as the data of this object
+	 */
+	void setHostData(T* hostData) {
+		setHostData(hostData, false, false);
+	}
+
+	/**
+	 * Sets the host array of this instance and specify whether the data
+	 * is owned by this object (for memory deletion purposes)
+	 * @param hostData	The host array to set as the data of this object
+	 * @param ownHostData	Flag indicating whether the data is owned by
+	 * 						this object
+	 * @param clone		Flag indicating whether the data should be cloned
+	 */
+	void setHostData(T* hostData, bool ownHostData, bool clone) {
 		if (this->ownHostData && this->hostData != nullptr) {
 			delete[] this->hostData;
 		}
 
-		this->hostData = hostData;
-		this->ownHostData = ownHostData;
+		if (!clone) {
+			this->hostData = hostData;
+			this->ownHostData = ownHostData;
+		}
+		else {
+			copyHostDataFrom(hostData);
+		}
 
 		this->head = CPU;
 	}
 
 	/**
-	 * Copies host data from the provided array and sets it as its own
-	 * host data. Note that the width, height and the number of channels
-	 * of the provided array must agree with those of this instance of
-	 * CudaMemory. The assumption is that they agree and the function
-	 * copies that many bytes from the source.
+	 * Sets the device array of this instance. The array will not be owned
+	 * @param deviceData	The device array to set as the data of this object
+	 * @param devicePitch	The pitch of the allocated memory
 	 */
-	void copyHostDataFrom(const T* hostData) {
-		T* myHostData = new T[width * height * numChannels];
-
-		memcpy((void*)myHostData, (const void*)hostData, width * height * numChannels * sizeof(T));
-
-		this->hostData = myHostData;
-		this->ownHostData = true;
-		this->head = CPU;
-	}
-
 	void setDeviceData(T* deviceData, int devicePitch) {
-		setDeviceData(deviceData, devPitch, false);
+			setDeviceData(deviceData, devPitch, false);
 	}
 
+	/**
+	 * Sets the device array of this instance and specify whether the data
+	 * is owned by this object (for memory deletion purposes)
+	 * @param deviceData	The device array to set as the data of this object
+	 * @param devicePitch	The pitch of the allocated memory
+	 * @param ownDeviceData	Flag indicating whether the data is owned by
+	 * 						this object
+	 */
 	void setDeviceData(T* deviceData, int devicePitch, bool ownDeviceData) {
 		if (this->ownDeviceData && this->deviceData != nullptr)
 			CHECK_CUDA_API(cudaFree(this->deviceData));
@@ -241,27 +413,64 @@ public:
 	}
 
 	/**
-	 * @return Returns the unmodifiable device data
+	 * Copies host data from the provided array and sets it as its own
+	 * host data. Note that the width, height and the number of channels
+	 * of the provided array must agree with those of this instance of
+	 * CudaMemory. The assumption is that they agree and the function
+	 * copies that many bytes from the source.
+	 *
+	 * @param hostData	The host data array to copy from
 	 */
-	const T* getDeviceData() {
-		toDevice();
-		return (const T*) deviceData;
-	}
+	void copyHostDataFrom(const T* hostData) {
+		T* myHostData = new T[size()];
 
-	T* getMutableHostData() {
-		toHost();
+		memcpy((void*)myHostData, (const void*)hostData, getSizeInBytes());
+
+		this->hostData = myHostData;
+		this->ownHostData = true;
 		this->head = CPU;
-		return this->hostData;
 	}
 
-	T* getMutableDeviceData() {
-		toDevice();
+	/**
+	 * Copies device data from the provided array and sets it as its own
+	 * device data. Note that the width, height and the number of channels
+	 * of the provided array must agree with those of this instance of
+	 * CudaMemory. The assumption is that they agree and the function
+	 * copies that many bytes from the source.
+	 *
+	 * @param otherDeviceData	The device data array to copy from
+	 */
+	void copyDeviceDataFrom(const T* otherDeviceData) {
+
+		if (isPitched()) {
+			CHECK_CUDA_API(cudaMallocPitch((void**)&deviceData, (size_t *)&devPitch, width * numChannels * sizeof(T), height));
+			CHECK_CUDA_API(cudaMemset2D((void*)this->deviceData, devPitch, 0, width * numChannels * sizeof(T), height));
+		}
+		else {
+			CHECK_CUDA_API(cudaMalloc((void**)&this->deviceData, getSizeInBytes()));
+			this->devPitch = getHostPitch();
+			CHECK_CUDA_API(cudaMemset((void*) this->deviceData, 0, getSizeInBytes()));
+		}
+
 		this->head = GPU;
-		return this->deviceData;
+
+		if (isPitched())	// If pitched memory is used, cudaMemcpy2d must be called to copy back the array
+			CHECK_CUDA_API(cudaMemcpy2D(this->deviceData, devPitch,
+			otherDeviceData, devPitch, width * numChannels * sizeof(T), height, cudaMemcpyDeviceToDevice));
+		else
+			CHECK_CUDA_API(cudaMemcpy((void*)this->deviceData, (const void*)otherDeviceData, getSizeInBytes(), cudaMemcpyDeviceToDevice));
+
+		this->ownDeviceData = true;
 	}
 
+	/**
+	 * Clones the host data and returns it as a smart pointer. The deleter
+	 * for the smart pointer is also specified.
+	 *
+	 * @return	The cloned host data as a smart pointer
+	 */
 	virtual std::shared_ptr<T> cloneHostData() {
-		getHostData();
+		toHost();
 
 		// Clone the data into a new array
 		T* result = new T[size()];
@@ -269,7 +478,6 @@ public:
 		std::shared_ptr<T> smartP( result, []( T *p ) { delete[] p; } );
 		return smartP;
 	}
-
 };
 
 // Force compilation to detect my errors

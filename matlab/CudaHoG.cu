@@ -1,20 +1,12 @@
 /*
- * Example of how to use the mxGPUArray API in a MEX file.  This example shows
- * how to write a MEX function that takes a gpuArray input and returns a
- * gpuArray output, e.g. B=mexFunction(A).
+ * CudaHoG.cu
  *
- * Copyright 2012 The MathWorks, Inc.
- */
-
-/*
- * Example of how to use the mxGPUArray API in a MEX file.  This example shows
- * how to write a MEX function that takes a gpuArray input and returns a
- * gpuArray output, e.g. B=mexFunction(A).
+ *  Created on: Oct 24, 2014
+ *      Author: Mehran Maghoumi
  *
- * Copyright 2012 The MathWorks, Inc.
+ *  HoG feature extraction gateway MEX file for MATLAB
+ *
  */
-
-
 #include "mex.h"
 #include <memory>
 #include <cstring>
@@ -51,25 +43,16 @@ void mexFunction(int nlhs, mxArray *plhs[],
 
 	// Obtain input data and dimensions
 	float* image = (float*)mxGetData(prhs[0]);
-	int dim0 = dims[0];
-	int dim1 = dims[1];
-	int dim2 = ndim > 2 ? dims[2] : 1;
+	int height = dims[0];
+	int width = dims[1];
+	int numChannels = ndim > 2 ? dims[2] : 1;
 
-//	mexPrintf("Passed %d, %d, %d\n", dim0, dim1, dim2);
+	std::shared_ptr<float> result = extractHOGFeatures(image, width, height, numChannels);
 
-//	mexPrintf("Calling CUDA...\n");
-
-	std::shared_ptr<float> result = extractHOGFeatures(image, dim0, dim1, dim2);
-//	mexPrintf("CUDA called successfully!\n");
-
-	int length = getNumberOfHogFeatures(dim0, dim1);
+	int length = getNumberOfHogFeatures(height, width);
 
 	plhs[0] = mxCreateNumericMatrix(1, length, mxSINGLE_CLASS, mxREAL);
 	float * data = (float *) mxGetData(plhs[0]);
 
-//	mexPrintf("Copying data...\n");
-
 	memcpy((void*) data, (const void*) result.get(), length * sizeof(float));
-
-//	mexPrintf("Done!\n");
 }
