@@ -38,17 +38,17 @@ void mexFunction(int nlhs, mxArray *plhs[],
 	int numChannels = ndim > 2 ? dims[2] : 1;
 	int filterSize = (double)mxGetScalar(prhs[1]);
 
-//	mexPrintf("Passed %d, %d, %d\n", dim0, dim1, dim2);
+	mexPrintf("Passed %d, %d, %d\n", dim0, dim1, dim2);
 
-//	mexPrintf("Calling CUDA...\n");
+	mexPrintf("Calling CUDA...\n");
 
 	std::shared_ptr<float> result = filter(image, width, height, numChannels, filterSize);
-//	mexPrintf("CUDA called successfully!\n");
+	mexPrintf("CUDA called successfully!\n");
 
 	plhs[0] = mxCreateNumericArray(ndim, dims, mxSINGLE_CLASS, mxREAL);
 	float * data = (float *) mxGetData(plhs[0]);
-//	mexPrintf("Copying data...\n");
+	mexPrintf("Copying data...\n");
 	memcpy((void*) data, (const void*) result.get(), width * height * numChannels * sizeof(float));
 
-//	mexPrintf("Done!\n");
+	mexPrintf("Done!\n");
 }

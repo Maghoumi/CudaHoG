@@ -7,7 +7,6 @@ Mex (Release)/
 # Image files
 *.png
 *.jpg
-*.pgm
 *.gif
 
 # Compiled Object files

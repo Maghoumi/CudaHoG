@@ -16,11 +16,9 @@
 using namespace codefull;
 using namespace std;
 
-#include "matlabimage.h"
-
 int main(int argc, char *argv[]) {
 
-	FloatImage image("png.png");
+	FloatImage image("images/Lena.pgm");
 
 	PreciseTimer timer;
 
@@ -28,7 +26,7 @@ int main(int argc, char *argv[]) {
 	FloatImage convolved = image.convolve(ImageUtils::getBoxKernel(7));
 	convolved.display();
 	timer.stopAndLog("Box filter");
-	convolved.save("png.png.png");
+	convolved.save("Lena-filtered.png");
 
 	timer.start();
 	CudaMemory<float> result = ImageUtils::extractHOGFeatures(image);

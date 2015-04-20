@@ -1,6 +1,6 @@
 clear all
 filterSize = 7;
-image = im2single(imread('images/1.png'));
+image = im2single(imread('../images/Lena.pgm'));
 
 [height width numChannels] = size(image);
 

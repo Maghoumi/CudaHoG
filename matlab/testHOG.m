@@ -1,5 +1,5 @@
 clear all
-image = im2single(imread('images/2.png'));
+image = im2single(imread('../images/Lena.pgm'));
 [height width numChannels] = size(image);
 
 fprintf('\nImage size is %d x %d\n', width, height);
@@ -22,6 +22,8 @@ speedup = m / c;
 fprintf('\nSpeed up was %f\n\n', speedup);
 
 figure, imshow(image), figure, imshow(HOGpicture(reshapeHoG(cudaHog, width, height), 16));
+
+% Will give errors if vlHog is not installed!
 
 tic
 vlHog = vl_hog(image,8, 'variant', 'dalaltriggs');
